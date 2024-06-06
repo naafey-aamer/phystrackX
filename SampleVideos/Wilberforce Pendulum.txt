@@ -1,0 +1,12 @@
+Datasheet: 
+Pendulum	Mass (g)	Diameter (mm)	Cylinder Height (mm)	Moment of Inertia(g.mm^2)	Video Link
+A			19.13		50.31			3.32					60.6 ±0.5					https://www.youtube.com/watch?v=UNhr9W0W-JE&index=1&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8
+B			18.91		45.9			3.90					49.9 ±0.4					https://www.youtube.com/watch?v=4VJj0ZlMbY8&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8&index=2
+C			19.1		41.1			5.00					40.4 ±0.4					https://www.youtube.com/watch?v=K57eU5BK6SU&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8&index=3
+D			18.88		35.58			6.56					29.9 ±0.3					https://www.youtube.com/watch?v=TgdKSOmYjZY&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8&index=4
+E			19.04		29				9.97					20.1 ±0.3					https://www.youtube.com/watch?v=3XjdmCdMDZA&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8&index=5
+F			19.03		20.55			19.74					10.1 ±0.2					https://www.youtube.com/watch?v=K6n8i9Gawn4&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8&index=6
+G			19.13		14.28			39.29					4.9 ±0.1					https://www.youtube.com/watch?v=R98RZmCEqRM&index=7&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8
+H			18.8		10.03			78.50					2.4 ±0.1					https://www.youtube.com/watch?v=90EJRUwkYoQ&index=8&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8
+
+Complete Video Playlist: https://www.youtube.com/watch?v=UNhr9W0W-JE&list=PLImGVzFaOSBwp81p6VPLUukONhXLhCnB8
