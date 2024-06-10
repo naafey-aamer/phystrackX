@@ -6,6 +6,7 @@ from utils import resize_frame
 import cv2
 import numpy as np
 from tkinter import ttk
+import csv
 
 class VideoApp:
     def __init__(self, root):
@@ -44,59 +45,63 @@ class VideoApp:
         self.progress_popup.destroy()
 
     def create_widgets(self):
-        # Create a frame to hold the filter widgets on the left side
-        self.filter_frame = tk.Frame(self.root)
-        self.filter_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
-        
-        self.open_button = tk.Button(self.filter_frame, text="Open Video", command=self.open_video)
-        self.open_button.pack(pady=10)
-        
-        self.fps_label = tk.Label(self.filter_frame, text="")
-        self.fps_label.pack(pady=5)
-        
-        self.filter_button = tk.Button(self.filter_frame, text="Apply Filters", command=self.show_filter_popup)
-        self.filter_button.pack(pady=10)
-        
-        self.undo_button = tk.Button(self.filter_frame, text="Undo Filters", command=self.undo_filter)
-        self.undo_button.pack(pady=10)
-        
-        self.frame_button = tk.Button(self.filter_frame, text="Select Initial and Final Frames", command=self.select_frames)
-        self.frame_button.pack(pady=10)
-        
-        self.distance_button = tk.Button(self.filter_frame, text="Set Reference Distance", command=self.set_reference_distance)
-        self.distance_button.pack(pady=10)
-        
-        self.clip_button = tk.Button(self.filter_frame, text="Clip Video", command=self.clip_video)
-        self.clip_button.pack(pady=10)
-        
-        self.axis_button = tk.Button(self.filter_frame, text="Mark Axes", command=self.mark_axes)
-        self.axis_button.pack(pady=10)
-        
-        self.track_button = tk.Button(self.filter_frame, text="Mark Points to Track", command=self.mark_points_to_track)
-        self.track_button.pack(pady=10)
-        
-        self.track_start_button = tk.Button(self.filter_frame, text="Start Tracking", command=self.start_tracking)
-        self.track_start_button.pack(pady=10)
-        
-        self.plot_button = tk.Button(self.filter_frame, text="Plot X and Y Distances", command=self.plot_distances)
-        self.plot_button.pack(pady=10)
-        self.plot_button.config(state=tk.DISABLED)
-        
-        self.info_label = tk.Label(self.filter_frame, text="")
-        self.info_label.pack(pady=10)
-        
-        self.exit_fullscreen_button = tk.Button(self.filter_frame, text="Exit Fullscreen", command=self.exit_fullscreen)
-        self.exit_fullscreen_button.pack(pady=10)
-        
-        # Create a frame to hold the video and slider widgets on the right side
-        self.video_frame = tk.Frame(self.root)
-        self.video_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        self.video_view = tk.Canvas(self.video_frame, width=640, height=480)
-        self.video_view.pack(pady=20, expand=True)
-        
-        self.slider = tk.Scale(self.video_frame, from_=0, to=100, orient=tk.HORIZONTAL, length=400, resolution=1, command=self.update_frame)
-        self.slider.pack(pady=10)
+            # Create a frame to hold the filter widgets on the left side
+            self.filter_frame = tk.Frame(self.root)
+            self.filter_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
+            
+            self.open_button = tk.Button(self.filter_frame, text="Open Video", command=self.open_video)
+            self.open_button.pack(pady=10)
+            
+            self.fps_label = tk.Label(self.filter_frame, text="")
+            self.fps_label.pack(pady=5)
+            
+            self.filter_button = tk.Button(self.filter_frame, text="Apply Filters", command=self.show_filter_popup)
+            self.filter_button.pack(pady=10)
+            
+            self.undo_button = tk.Button(self.filter_frame, text="Undo Filters", command=self.undo_filter)
+            self.undo_button.pack(pady=10)
+            
+            self.frame_button = tk.Button(self.filter_frame, text="Select Initial and Final Frames", command=self.select_frames)
+            self.frame_button.pack(pady=10)
+            
+            self.distance_button = tk.Button(self.filter_frame, text="Set Reference Distance", command=self.set_reference_distance)
+            self.distance_button.pack(pady=10)
+            
+            self.clip_button = tk.Button(self.filter_frame, text="Clip Video", command=self.clip_video)
+            self.clip_button.pack(pady=10)
+            
+            self.axis_button = tk.Button(self.filter_frame, text="Mark Axes", command=self.mark_axes)
+            self.axis_button.pack(pady=10)
+            
+            self.track_button = tk.Button(self.filter_frame, text="Mark Points to Track", command=self.mark_points_to_track)
+            self.track_button.pack(pady=10)
+            
+            self.track_start_button = tk.Button(self.filter_frame, text="Start Tracking", command=self.start_tracking)
+            self.track_start_button.pack(pady=10)
+            
+            self.plot_button = tk.Button(self.filter_frame, text="Plot X and Y Distances", command=self.plot_distances)
+            self.plot_button.pack(pady=10)
+            self.plot_button.config(state=tk.DISABLED)
+            
+            self.info_label = tk.Label(self.filter_frame, text="")
+            self.info_label.pack(pady=10)
+            
+            self.exit_fullscreen_button = tk.Button(self.filter_frame, text="Exit Fullscreen", command=self.exit_fullscreen)
+            self.exit_fullscreen_button.pack(pady=10)
+
+            # Create a button to show tracked points in a table
+            self.table_button = tk.Button(self.filter_frame, text="Show Tracked Points Table", command=self.show_tracked_points_table)
+            self.table_button.pack(pady=10)
+            
+            # Create a frame to hold the video and slider widgets on the right side
+            self.video_frame = tk.Frame(self.root)
+            self.video_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            self.video_view = tk.Canvas(self.video_frame, width=640, height=480)
+            self.video_view.pack(pady=20, expand=True)
+            
+            self.slider = tk.Scale(self.video_frame, from_=0, to=100, orient=tk.HORIZONTAL, length=400, resolution=1, command=self.update_frame)
+            self.slider.pack(pady=10)
 
     
     def open_video(self):
@@ -125,8 +130,6 @@ class VideoApp:
 
             self.slider['to'] = len(self.processor.frames) - 1
         cap.release()
-
-
 
     def update_frame(self, event):
         frame_number = int(self.slider.get())
@@ -343,6 +346,65 @@ class VideoApp:
         # Update the slider and display the first frame
         self.slider.set(0)
         self.update_frame(None)
+
+    def show_tracked_points_table(self):
+        if not hasattr(self.processor, 'points_tracked'):
+            messagebox.showerror("Error", "No tracked points available. Please start tracking first.")
+            return
+
+        table_popup = tk.Toplevel(self.root)
+        table_popup.title("Tracked Points Table")
+        table_frame = tk.Frame(table_popup)
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ["Frame"] + [f"Point {i+1} (x, y)" for i in range(len(self.processor.points_to_track))]
+        tree = ttk.Treeview(table_frame, columns=columns, show='headings')
+
+        for col in columns:
+            tree.heading(col, text=col)
+
+        max_len = max(len(points) for points in self.processor.points_tracked.values())
+        for i in range(max_len):
+            row = [i]
+            for j in range(len(self.processor.points_to_track)):
+                if i < len(self.processor.points_tracked[j]):
+                    x, y = self.processor.points_tracked[j][i]
+                    row.append(f"({int(x)}, {int(y)})")
+                else:
+                    row.append("")
+            tree.insert('', tk.END, values=row)
+
+        tree.pack(fill=tk.BOTH, expand=True)
+
+        # Add the export button
+        export_button = tk.Button(table_popup, text="Export as CSV", command=self.export_tracked_points_to_csv)
+        export_button.pack(pady=10)
+
+
+    def export_tracked_points_to_csv(self):
+        if not hasattr(self.processor, 'points_tracked'):
+            messagebox.showerror("Error", "No tracked points available to export.")
+            return
+
+        file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+        if not file_path:
+            return
+
+        with open(file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            columns = ["Frame"] + [f"Point {i+1} (x, y)" for i in range(len(self.processor.points_to_track))]
+            writer.writerow(columns)
+
+            max_len = max(len(points) for points in self.processor.points_tracked.values())
+            for i in range(max_len):
+                row = [i]
+                for j in range(len(self.processor.points_to_track)):
+                    if i < len(self.processor.points_tracked[j]):
+                        x, y = self.processor.points_tracked[j][i]
+                        row.append(f"({int(x)}, {int(y)})")
+                    else:
+                        row.append("")
+                writer.writerow(row)
 
 
     def on_close(self):
