@@ -127,22 +127,13 @@ class VideoApp:
         cap.release()
 
 
+
     def update_frame(self, event):
         frame_number = int(self.slider.get())
-        if self.processor.filtered_images:
+        if self.processor.filtered_images is not None and len(self.processor.filtered_images) > frame_number:
             frame = self.processor.filtered_images[frame_number]
-        elif self.processor.cropped_frames:
-            frame = self.processor.cropped_frames[frame_number]
         else:
-            cap = cv2.VideoCapture(self.processor.video_path)
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-            ret, frame = cap.read()
-            if not ret:
-                print("Error reading frame")
-                return
-            frame = resize_frame(frame, 640, 480)
-            frame = np.uint8(np.clip(frame, 0, 255))
-            cap.release()
+            frame = self.processor.frames[frame_number]  # Use frames directly
 
         img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         photo = ImageTk.PhotoImage(image=img)
@@ -150,8 +141,6 @@ class VideoApp:
         self.video_view.delete('all')
         self.video_view.create_image(0, 0, image=photo, anchor='nw')
         self.photo = photo
-
-
 
     def select_frames(self):
         self.processor.initial_frame = int(simpledialog.askinteger("Initial Frame", "Enter the initial frame number:"))
@@ -179,8 +168,7 @@ class VideoApp:
         self.processor.clip_video()
 
         # Replace original frames with the clipped frames
-        self.processor.frames = self.processor.cropped_frames
-        self.processor.cropped_frames = []
+        self.processor.frames = self.processor.cropped_frames.copy()
 
         # If there are filtered images, apply the filters to the clipped frames
         if self.processor.filtered_images:
@@ -190,7 +178,7 @@ class VideoApp:
 
     def display_clipped_frames(self):
         def update_display(frame_index):
-            if self.processor.filtered_images:
+            if self.processor.filtered_images is not None and len(self.processor.filtered_images) > frame_index:
                 frame = self.processor.filtered_images[frame_index]
             else:
                 frame = self.processor.frames[frame_index]  # Use frames directly
@@ -203,7 +191,6 @@ class VideoApp:
         self.slider['to'] = len(self.processor.frames) - 1  # Use frames directly
         self.slider.config(command=lambda event: update_display(int(self.slider.get())))
         update_display(0)
-
 
     def mark_axes(self):
         self.processor.axis_coords = []
@@ -344,9 +331,20 @@ class VideoApp:
         self.display_clipped_frames()
 
     def undo_filter(self):
-        self.processor.filtered_images = []
+        # Clear filtered images
+        self.processor.filtered_images = None
+
+        # Use cropped frames if available, otherwise reload from source
+        # if self.processor.cropped_frames:
+        #     self.processor.frames = self.processor.cropped_frames.copy()
+        # else:
+        self.load_video()  # Ensure this method reloads the video frames correctly
+
+        # Update the slider and display the first frame
+        self.slider.set(0)
         self.update_frame(None)
-    
+
+
     def on_close(self):
         self.root.destroy()
 
