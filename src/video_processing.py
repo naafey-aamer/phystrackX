@@ -135,7 +135,7 @@ class VideoProcessor:
         elif filter_type == "Contrast Adjustment":
             img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             enhancer = ImageEnhance.Contrast(img)
-            frame = np.array(enhancer.enhance(2))
+            frame = np.array(enhancer.enhance(1))
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
         elif filter_type == "Optical Flow":
