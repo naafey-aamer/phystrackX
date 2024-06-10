@@ -73,9 +73,9 @@ class VideoApp:
             self.axis_button = tk.Button(self.filter_frame, text="Mark Axes", command=self.mark_axes)
             self.axis_button.pack(pady=10)
             
-            self.track_button = tk.Button(self.filter_frame, text="Mark Points to Track", command=self.mark_points_to_track)
+            self.track_button = tk.Button(self.filter_frame, text="Mark Points to Track", command=self.choose_tracking_method)
             self.track_button.pack(pady=10)
-            
+
             self.track_start_button = tk.Button(self.filter_frame, text="Start Tracking", command=self.start_tracking)
             self.track_start_button.pack(pady=10)
             
@@ -406,6 +406,52 @@ class VideoApp:
                         row.append("")
                 writer.writerow(row)
 
+    def choose_tracking_method(self):
+        method = simpledialog.askstring("Tracking Method", "Enter 'point' for individual points or 'shape' for centroid of a shape:")
+        if method == "point":
+            self.mark_points_to_track()
+        elif method == "shape":
+            self.mark_shape_to_track()
+        else:
+            messagebox.showerror("Error", "Invalid method. Please enter 'point' or 'shape'.")
+
+    def mark_shape_to_track(self):
+        self.shape_type = simpledialog.askstring("Shape Type", "Enter 'box' for bounding box or 'circle' for circle:")
+        if self.shape_type not in ["box", "circle"]:
+            messagebox.showerror("Error", "Invalid shape type. Please enter 'box' or 'circle'.")
+            return
+        messagebox.showinfo("Instruction", "Please draw the shape around the object to track.")
+        self.video_view.bind("<Button-1>", self.start_shape)
+
+    def start_shape(self, event):
+        self.start_x, self.start_y = event.x, event.y
+        self.video_view.bind("<B1-Motion>", self.draw_shape)
+        self.video_view.bind("<ButtonRelease-1>", self.finish_shape)
+
+    def draw_shape(self, event):
+        self.video_view.delete("current_shape")
+        if self.shape_type == "box":
+            self.video_view.create_rectangle(self.start_x, self.start_y, event.x, event.y, outline="red", tag="current_shape")
+        elif self.shape_type == "circle":
+            radius = ((event.x - self.start_x) ** 2 + (event.y - self.start_y) ** 2) ** 0.5
+            self.video_view.create_oval(self.start_x - radius, self.start_y - radius, self.start_x + radius, self.start_y + radius, outline="red", tag="current_shape")
+
+    def finish_shape(self, event):
+        self.video_view.unbind("<B1-Motion>")
+        self.video_view.unbind("<ButtonRelease-1>")
+        self.video_view.delete("current_shape")
+        if self.shape_type == "box":
+            self.end_x, self.end_y = event.x, event.y
+            centroid_x = (self.start_x + self.end_x) / 2
+            centroid_y = (self.start_y + self.end_y) / 2
+        elif self.shape_type == "circle":
+            self.end_x, self.end_y = event.x, event.y
+            radius = ((self.end_x - self.start_x) ** 2 + (self.end_y - self.start_y) ** 2) ** 0.5
+            centroid_x, centroid_y = self.start_x, self.start_y
+        
+        self.processor.points_to_track = [(centroid_x, centroid_y)]
+        self.video_view.create_oval(centroid_x - 3, centroid_y - 3, centroid_x + 3, centroid_y + 3, fill="red")
+        messagebox.showinfo("Success", "Centroid marked for tracking.")
 
     def on_close(self):
         self.root.destroy()
