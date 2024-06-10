@@ -1,11 +1,10 @@
 import tkinter as tk
-from tkinter import filedialog, simpledialog, messagebox, ttk
+from tkinter import filedialog, simpledialog, messagebox
 from PIL import ImageTk, Image, ImageDraw, ImageEnhance
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
-# from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
 class VideoApp:
@@ -79,6 +78,7 @@ class VideoApp:
         # Button to clip video
         self.clip_button = tk.Button(self.root, text="Clip Video", command=self.clip_video)
         self.clip_button.pack(pady=10)
+        
         
         # Button to mark axes
         self.axis_button = tk.Button(self.root, text="Mark Axes", command=self.mark_axes)
@@ -423,17 +423,6 @@ class VideoApp:
         self.prev_smoothed_frame = smoothed_frame
         return smoothed_frame
 
-    def apply_abg_filter(self, frame, alpha=0.85, beta=0.005, gamma=0.001):
-        # self.initialize_abg_filter()
-        measurement = np.array([np.mean(frame[:, :, 0]), np.mean(frame[:, :, 1])])  # Simplified for demonstration
-        self.abg_state += self.abg_velocity + 0.5 * self.abg_acceleration
-        self.abg_velocity += self.abg_acceleration
-        residual = measurement - self.abg_state
-        self.abg_state += alpha * residual
-        self.abg_velocity += beta * residual
-        self.abg_acceleration += gamma * residual
-        return np.uint8(self.abg_state).reshape((1, 1, 2))  # Simplified to a single pixel for demonstration
-
     def butter_bandpass(lowcut, highcut, fs, order=5):
         nyquist = 0.5 * fs
         low = lowcut / nyquist
@@ -449,7 +438,7 @@ class VideoApp:
     def apply_filter_to_frame(self, filter_type, frame, prev_frame=None):
         global mean_shift_initialized, camshift_initialized
         
-        img = None  # Ensure img is always initialized
+        img = None
 
         if filter_type == "GMM With Background":
                 fg_mask = self.bg_subtractor.apply(frame)
@@ -466,12 +455,6 @@ class VideoApp:
             fg_mask_3channel = cv2.cvtColor(fg_mask, cv2.COLOR_GRAY2BGR)
             frame = cv2.bitwise_and(frame, fg_mask_3channel)
         
-        elif filter_type == "Mean Shift Filter":
-            pass
-
-        elif filter_type == "Camshift":
-            pass
-
         elif filter_type == "Low-pass Filter":
             # Apply Gaussian blur as a low-pass filter
             frame = cv2.GaussianBlur(frame, (15, 15), 0)
@@ -488,11 +471,7 @@ class VideoApp:
 
         elif filter_type == "Exponential Smoothing":
             frame = self.apply_exponential_smoothing(frame)
-            frame = np.uint8(np.clip(frame, 0, 255))  # Ensure frame is in uint8 format
-
-        elif filter_type == "Alpha-Beta-Gamma Filter":
-            frame = self.apply_abg_filter(frame)
-            frame = np.uint8(np.clip(frame, 0, 255))  # Ensure frame is in uint8 format
+            frame = np.uint8(np.clip(frame, 0, 255))
 
         elif filter_type == "Band-pass Filter":
             frame = cv2.GaussianBlur(frame, (5, 5), 0)
