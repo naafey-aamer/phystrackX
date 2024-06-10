@@ -11,7 +11,7 @@ To start Phystrack, open the terminal in the cloned directory and run `code/main
 
 ## How To Run
 ```
-python3 code/main.py
+python3 src/main.py
 ```
 
 ## Implemented Features And WorkFlow
