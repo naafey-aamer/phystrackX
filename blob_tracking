@@ -10,6 +10,7 @@ bbox = None
 frame = None
 resize_width = 640  # Desired width of the resized frame
 resize_height = 480  # Desired height of the resized frame
+heatmap = None
 
 def select_video_file():
     file_path = filedialog.askopenfilename()
@@ -37,13 +38,26 @@ def draw_rectangle(event, x, y, flags, param):
         cv2.rectangle(frame, (ix, iy), (x, y), (0, 255, 0), 2)
         cv2.imshow('Frame', frame)
 
+def calculate_centroid(contour):
+    M = cv2.moments(contour)
+    if M["m00"] != 0:
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+    else:
+        cX, cY = 0, 0
+    return cX, cY
+
 def detect_and_track_object(file_path, bbox):
+    global heatmap
     print(f"Tracking object in {file_path} with initial bounding box {bbox}")
     cap = cv2.VideoCapture(file_path)
     ret, frame = cap.read()
     if not ret:
         print("Error: Could not read frame from video")
         return
+
+    # Initialize heatmap
+    heatmap = np.zeros((resize_height, resize_width), dtype=np.float32)
 
     # Resize the frame
     frame = cv2.resize(frame, (resize_width, resize_height))
@@ -87,12 +101,31 @@ def detect_and_track_object(file_path, bbox):
             # Draw the contour on the frame
             cv2.drawContours(frame[y:y+h, x:x+w], [max_contour], -1, (0, 255, 0), 2)
 
+            # Calculate and draw centroid
+            cX, cY = calculate_centroid(max_contour)
+            cv2.circle(frame[y:y+h, x:x+w], (cX, cY), 5, (255, 0, 0), -1)
+            # cv2.putText(frame[y:y+h, x:x+w], "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+            # Update heatmap
+            heatmap[y:y+h, x:x+w] = cv2.add(heatmap[y:y+h, x:x+w], thresh.astype(np.float32))
+
         cv2.imshow('Tracking', frame)
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
+    # Save heatmap as bitmap
+    save_heatmap()
+
     cap.release()
     cv2.destroyAllWindows()
+
+def save_heatmap():
+    global heatmap
+    if heatmap is not None:
+        heatmap_normalized = cv2.normalize(heatmap, None, 0, 255, cv2.NORM_MINMAX)
+        heatmap_colored = cv2.applyColorMap(heatmap_normalized.astype(np.uint8), cv2.COLORMAP_JET)
+        cv2.imwrite('heatmap.bmp', heatmap_colored)
+        print("Heatmap saved as 'heatmap.bmp'")
 
 def process_video(file_path):
     global frame, bbox
