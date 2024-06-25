@@ -15,7 +15,6 @@ class VideoApp:
         
         # Make the window cover the entire screen
         self.root.attributes('-fullscreen', True)
-        
         self.processor = VideoProcessor()
         self.create_widgets()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -255,6 +254,8 @@ class VideoApp:
         
         for frame in self.processor.frames[1:]:
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # print(frame_gray.shape)
+            # print(old_gray.shape)
             p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
             good_new = p1[st == 1]
             good_old = p0[st == 1]
@@ -296,7 +297,7 @@ class VideoApp:
             "High-pass Filter",
             "Median Filter",
             "Exponential Smoothing",
-            "Band-pass Filter",
+            "Edge Detection Filter",
             "Bilateral Filter",
             "Object Separation",
             "Contrast Adjustment"
@@ -337,13 +338,8 @@ class VideoApp:
         # Clear filtered images
         self.processor.filtered_images = None
 
-        # Use cropped frames if available, otherwise reload from source
-        # if self.processor.cropped_frames:
-        #     self.processor.frames = self.processor.cropped_frames.copy()
-        # else:
         self.load_video()  # Ensure this method reloads the video frames correctly
 
-        # Update the slider and display the first frame
         self.slider.set(0)
         self.update_frame(None)
 

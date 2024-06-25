@@ -114,7 +114,7 @@ class VideoProcessor:
             frame = self.apply_exponential_smoothing(frame)
             frame = np.uint8(np.clip(frame, 0, 255))
 
-        elif filter_type == "Band-pass Filter":
+        elif filter_type == "Edge Detection Filter":
             frame = cv2.GaussianBlur(frame, (5, 5), 0)
             frame = cv2.Laplacian(frame, cv2.CV_64F)
             frame = np.uint8(np.absolute(frame))
