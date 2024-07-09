@@ -1,4 +1,8 @@
+tk
 Pillow
 opencv-python
 numpy
 matplotlib
+seaborn
+pytesseract
+scipy
