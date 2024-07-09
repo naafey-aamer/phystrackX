@@ -32,7 +32,6 @@ class VideoProcessor:
             
             self.cropped_frames = self.frames[self.initial_frame:self.final_frame + 1]
             
-            # Optionally, update self.filtered_images based on the cropped frames if needed
             if self.filtered_images:
                 self.filtered_images = self.filtered_images[self.initial_frame:self.final_frame + 1]
 
@@ -72,17 +71,6 @@ class VideoProcessor:
         self.prev_smoothed_frame = smoothed_frame
         return smoothed_frame
 
-    def butter_bandpass(self, lowcut, highcut, fs, order=5):
-        nyquist = 0.5 * fs
-        low = lowcut / nyquist
-        high = highcut / nyquist
-        b, a = butter(order, [low, high], btype='band')
-        return b, a
-
-    def bandpass_filter(self, data, lowcut, highcut, fs, order=5):
-        b, a = self.butter_bandpass(lowcut, highcut, fs, order=order)
-        y = filtfilt(b, a, data, axis=0)
-        return y
 
     def apply_filter_to_frame(self, frame, filter_type, prev_frame=None):
         if filter_type == "GMM With Background":
