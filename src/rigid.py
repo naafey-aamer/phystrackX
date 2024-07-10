@@ -8,6 +8,8 @@ import numpy as np
 from tkinter import ttk
 import csv
 from matplotlib import pyplot as plt
+import imageio
+from PIL import ImageSequence
 
 class MenuScreen:
     def __init__(self, master):
@@ -53,6 +55,7 @@ class MenuScreen:
     def on_non_rigid(self):
         self.master.destroy()
         root = tk.Tk()
+        from nonrigid import VideoApp2  # Delayed import
         root.geometry("960x640")
         app = VideoApp2(root)
         root.mainloop()
@@ -106,7 +109,7 @@ class VideoApp:
             self.filter_button = tk.Button(self.filter_frame, text="Apply Filters", command=self.show_filter_popup)
             self.filter_button.pack(pady=10)
             
-            self.undo_button = tk.Button(self.filter_frame, text="Undo Filters", command=self.undo_filter)
+            self.undo_button = tk.Button(self.filter_frame, text="Reset", command=self.undo_filter)
             self.undo_button.pack(pady=10)
             
             self.frame_button = tk.Button(self.filter_frame, text="Select Initial and Final Frames", command=self.select_frames)
@@ -361,25 +364,47 @@ class VideoApp:
             origin = self.processor.axis_coords[0]
             if self.processor.axis_image_id:
                 self.video_view.delete(self.processor.axis_image_id)
+            
             img = Image.new('RGBA', (640, 480), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
-            # Draw temporary axes
-            draw.line([origin, (event.x, origin[1])], fill="blue", width=2)  # X-axis
-            draw.line([origin, (origin[0], event.y)], fill="green", width=2)  # Y-axis
+            
+            # Draw axes extending to the borders of the image/frame
+            # X-axis
+            draw.line([(0, origin[1]), (640, origin[1])], fill="blue", width=2)
+            # Y-axis
+            draw.line([(origin[0], 0), (origin[0], 480)], fill="green", width=2)
+            
             self.processor.axis_image = ImageTk.PhotoImage(img)
             self.processor.axis_image_id = self.video_view.create_image(0, 0, image=self.processor.axis_image, anchor='nw')
 
     def drop_axes(self, event):
         if len(self.processor.axis_coords) == 1:
             origin = self.processor.axis_coords[0]
-            self.processor.axis_coords.append((event.x, origin[1]))  # X-axis end point
-            self.processor.axis_coords.append((origin[0], event.y))  # Y-axis end point
-            self.video_view.create_line(origin[0], origin[1], event.x, origin[1], fill="blue", width=2)  # X-axis
-            self.video_view.create_line(origin[0], origin[1], origin[0], event.y, fill="green", width=2)  # Y-axis
+            self.processor.axis_coords.append((640, origin[1]))  # Positive X-axis end point
+            self.processor.axis_coords.append((0, origin[1]))    # Negative X-axis end point
+            self.processor.axis_coords.append((origin[0], 480))  # Positive Y-axis end point
+            self.processor.axis_coords.append((origin[0], 0))    # Negative Y-axis end point
+
+            # Draw axes to the borders of the image/frame
+            self.video_view.create_line(0, origin[1], 640, origin[1], fill="blue", width=2)  # X-axis
+            self.video_view.create_line(origin[0], 0, origin[0], 480, fill="green", width=2)  # Y-axis
+            
             self.video_view.unbind("<Motion>")
             self.video_view.unbind("<Button-1>")
 
-    
+    def translate_to_real_coordinates(self, points):
+        origin = self.processor.axis_coords[0]
+        ref_pixel_dist = np.linalg.norm(np.array(self.processor.line_coords[0]) - np.array(self.processor.line_coords[1]))
+        scale_factor = self.processor.ref_distance / ref_pixel_dist
+        
+        real_coords = []
+        for point in points:
+            x_real = (point[0] - origin[0]) * scale_factor
+            y_real = (origin[1] - point[1]) * scale_factor
+            real_coords.append((x_real, y_real))
+        
+        return real_coords
+
     def mark_points_to_track(self):
         self.processor.points_to_track = []
         messagebox.showinfo("Instruction", "Please click points on the video to mark them for tracking.")
@@ -439,12 +464,43 @@ class VideoApp:
 
 
     def plot_distances(self):
-        if not hasattr(self.processor, 'points_tracked'):
-            messagebox.showerror("Error", "No tracked points available. Please start tracking first.")
+        if not hasattr(self, 'points_tracked'):
             return
         
-        self.processor.plot_distances()
-    
+        if len(self.axis_coords) < 5:
+            print("Axes are not fully defined.")
+            return
+        
+        origin = self.axis_coords[0]
+        x_axis_end_pos = self.axis_coords[1]
+        x_axis_end_neg = self.axis_coords[2]
+        y_axis_end_pos = self.axis_coords[3]
+        y_axis_end_neg = self.axis_coords[4]
+
+        # Reference pixel distance and scale factor calculation
+        ref_pixel_dist = np.linalg.norm(np.array(self.line_coords[0]) - np.array(self.line_coords[1]))
+        scale_factor = self.ref_distance / ref_pixel_dist
+
+        for i, points in self.points_tracked.items():
+            x_coords = [(p[0] - origin[0]) * scale_factor for p in points]
+            y_coords = [(origin[1] - p[1]) * scale_factor for p in points]
+
+            plt.figure()
+            plt.subplot(2, 1, 1)
+            plt.plot(x_coords, label=f'Point {i} X')
+            plt.xlabel('Frame')
+            plt.ylabel('X Distance')
+            plt.legend()
+
+            plt.subplot(2, 1, 2)
+            plt.plot(y_coords, label=f'Point {i} Y')
+            plt.xlabel('Frame')
+            plt.ylabel('Y Distance')
+            plt.legend()
+
+            plt.tight_layout()
+            plt.show()
+
     def show_filter_popup(self):
         popup = tk.Toplevel(self.root)
         popup.title("Select Filters")
@@ -466,10 +522,54 @@ class VideoApp:
         self.filter_vars = {filter_name: tk.BooleanVar() for filter_name in filters}
         
         for filter_name in filters:
-            tk.Checkbutton(popup, text=filter_name, variable=self.filter_vars[filter_name]).pack(anchor='w')
-        
+            frame = tk.Frame(popup)
+            frame.pack(anchor='w', fill='x')
+            
+            chk = tk.Checkbutton(frame, text=filter_name, variable=self.filter_vars[filter_name])
+            chk.pack(side=tk.LEFT, anchor='w')
+            
+            info_button = tk.Button(frame, text="i", command=lambda fn=filter_name: self.show_filter_preview(fn))
+            info_button.pack(side=tk.RIGHT, padx=5)
+
         apply_button = tk.Button(popup, text="Apply", command=lambda: self.apply_filters(popup))
         apply_button.pack(pady=10)
+    
+    def show_filter_preview(self, filter_name):
+        if not self.processor.frames:
+            messagebox.showerror("Error", "Please load a video first.")
+            return
+
+        preview_popup = tk.Toplevel(self.root)
+        preview_popup.title(f"Preview of {filter_name}")
+
+        middle_frame_index = len(self.processor.frames) // 2
+        start_index = max(0, middle_frame_index - 10)
+        end_index = min(len(self.processor.frames), middle_frame_index + 10 )
+        
+        frames = []
+        prev_frame = None
+        for i in range(start_index, end_index):
+            frame = self.processor.frames[i].copy()
+            frame = self.processor.apply_filter_to_frame(frame, filter_name, prev_frame)
+            if filter_name in ["Exponential Smoothing", "Optical Flow", "GMM With Background", "GMM Without Background"]:
+                prev_frame = frame
+            frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        
+        gif_path = "/tmp/preview.gif"
+        imageio.mimsave(gif_path, frames, fps=5)
+        
+        gif = Image.open(gif_path)
+        frames = [ImageTk.PhotoImage(img) for img in ImageSequence.Iterator(gif)]
+        
+        canvas = tk.Canvas(preview_popup, width=gif.width, height=gif.height)
+        canvas.pack()
+        
+        def animate_gif(frame_idx=0):
+            if frame_idx < len(frames):
+                canvas.create_image(0, 0, image=frames[frame_idx], anchor='nw')
+                preview_popup.after(100, animate_gif, (frame_idx + 1) % len(frames))
+        
+        animate_gif()
     
     def apply_filters(self, popup):
         selected_filters = [filter_name for filter_name, var in self.filter_vars.items() if var.get()]
@@ -525,8 +625,9 @@ class VideoApp:
             row = [i]
             for j in range(len(self.processor.points_to_track)):
                 if i < len(self.processor.points_tracked[j]):
-                    x, y = self.processor.points_tracked[j][i]
-                    row.append(f"({int(x)}, {int(y)})")
+                    real_coords = self.translate_to_real_coordinates(self.processor.points_tracked[j])
+                    x, y = real_coords[i]
+                    row.append(f"({x:.2f}, {y:.2f})")
                 else:
                     row.append("")
             tree.insert('', tk.END, values=row)
@@ -536,7 +637,6 @@ class VideoApp:
         # Add the export button
         export_button = tk.Button(table_popup, text="Export as CSV", command=self.export_tracked_points_to_csv)
         export_button.pack(pady=10)
-
 
     def export_tracked_points_to_csv(self):
         if not hasattr(self.processor, 'points_tracked'):
@@ -557,58 +657,14 @@ class VideoApp:
                 row = [i]
                 for j in range(len(self.processor.points_to_track)):
                     if i < len(self.processor.points_tracked[j]):
-                        x, y = self.processor.points_tracked[j][i]
-                        row.append(f"({int(x)}, {int(y)})")
+                        real_coords = self.translate_to_real_coordinates(self.processor.points_tracked[j])
+                        x, y = real_coords[i]
+                        row.append(f"({x:.2f}, {y:.2f})")
                     else:
                         row.append("")
                 writer.writerow(row)
 
-    # def choose_tracking_method(self):
-    #     method = simpledialog.askstring("Tracking Method", "Enter 'point' for individual points or 'shape' for centroid of a shape:")
-    #     if method == "point":
-    #         self.mark_points_to_track()
-    #     elif method == "shape":
-    #         self.mark_shape_to_track()
-    #     else:
-    #         messagebox.showerror("Error", "Invalid method. Please enter 'point' or 'shape'.")
 
-    # def mark_shape_to_track(self):
-    #     self.shape_type = simpledialog.askstring("Shape Type", "Enter 'box' for bounding box or 'circle' for circle:")
-    #     if self.shape_type not in ["box", "circle"]:
-    #         messagebox.showerror("Error", "Invalid shape type. Please enter 'box' or 'circle'.")
-    #         return
-    #     messagebox.showinfo("Instruction", "Please draw the shape around the object to track.")
-    #     self.video_view.bind("<Button-1>", self.start_shape)
-
-    # def start_shape(self, event):
-    #     self.start_x, self.start_y = event.x, event.y
-    #     self.video_view.bind("<B1-Motion>", self.draw_shape)
-    #     self.video_view.bind("<ButtonRelease-1>", self.finish_shape)
-
-    # def draw_shape(self, event):
-    #     self.video_view.delete("current_shape")
-    #     if self.shape_type == "box":
-    #         self.video_view.create_rectangle(self.start_x, self.start_y, event.x, event.y, outline="red", tag="current_shape")
-    #     elif self.shape_type == "circle":
-    #         radius = ((event.x - self.start_x) ** 2 + (event.y - self.start_y) ** 2) ** 0.5
-    #         self.video_view.create_oval(self.start_x - radius, self.start_y - radius, self.start_x + radius, self.start_y + radius, outline="red", tag="current_shape")
-
-    # def finish_shape(self, event):
-    #     self.video_view.unbind("<B1-Motion>")
-    #     self.video_view.unbind("<ButtonRelease-1>")
-    #     self.video_view.delete("current_shape")
-    #     if self.shape_type == "box":
-    #         self.end_x, self.end_y = event.x, event.y
-    #         centroid_x = (self.start_x + self.end_x) / 2
-    #         centroid_y = (self.start_y + self.end_y) / 2
-    #     elif self.shape_type == "circle":
-    #         self.end_x, self.end_y = event.x, event.y
-    #         radius = ((self.end_x - self.start_x) ** 2 + (self.end_y - self.start_y) ** 2) ** 0.5
-    #         centroid_x, centroid_y = self.start_x, self.start_y
-        
-    #     self.processor.points_to_track = [(centroid_x, centroid_y)]
-    #     self.video_view.create_oval(centroid_x - 3, centroid_y - 3, centroid_x + 3, centroid_y + 3, fill="red")
-    #     messagebox.showinfo("Success", "Centroid marked for tracking.")
 
     def choose_tracking_method(self):
         self.tracking_method = tk.StringVar()
@@ -684,7 +740,7 @@ class VideoApp:
 
         popup = tk.Toplevel(self.root)
         popup.title(f"{order}st Derivative Options")
-        
+
         def plot_derivative():
             derivative = self.calculate_derivative(order)
             self.plot_derivative(derivative, order)
@@ -699,15 +755,16 @@ class VideoApp:
     def calculate_derivative(self, order):
         fps = self.processor.fps
         derivative = {}
-        
+
         for key, points in self.processor.points_tracked.items():
-            positions = np.array(points)
+            real_coords = self.translate_to_real_coordinates(points)
+            positions = np.array(real_coords)
             if order == 1:
                 derivative[key] = np.gradient(positions, axis=0) * fps
             elif order == 2:
                 first_derivative = np.gradient(positions, axis=0) * fps
                 derivative[key] = np.gradient(first_derivative, axis=0) * fps
-        
+
         return derivative
 
     def plot_derivative(self, derivative, order):

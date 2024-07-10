@@ -9,6 +9,7 @@ from tkinter import ttk
 import csv
 from nonrigid import VideoApp2
 from rigid import VideoApp
+from auto import VideoApp3
 
 class WelcomeScreen:
     def __init__(self, master):
@@ -63,6 +64,7 @@ class MenuScreen:
         # Buttons for menu options
         ttk.Button(master, text="Rigid Object Tracking", command=self.on_rigid).pack(fill='x', padx=50, pady=5)
         ttk.Button(master, text="Non-Rigid Object Tracking", command=self.on_non_rigid).pack(fill='x', padx=50, pady=5)
+        # ttk.Button(master, text="Auto Tracking", command=self.on_auto).pack(fill='x', padx=50, pady=5)
 
     def load_and_display_logo(self, master):
         # Load the image
@@ -95,6 +97,14 @@ class MenuScreen:
         root.geometry("960x640")
         app = VideoApp2(root)
         root.mainloop()
+
+    def on_auto(self):
+        self.master.destroy()
+        root = tk.Tk()
+        root.geometry("960x640")
+        app = VideoApp3(root)
+        root.mainloop()
+
 
 def main():
     root = tk.Tk()
