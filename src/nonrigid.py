@@ -906,13 +906,13 @@ class VideoApp2:
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # Resize the image to double its original size
-        gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
+        gray = cv2.resize(gray, None, fx=5, fy=5, interpolation=cv2.INTER_LINEAR)
         # Apply Gaussian blur
-        gray = cv2.GaussianBlur(gray, (9, 9), 0)
+        gray = cv2.GaussianBlur(gray, (11, 11), 0)
         # Apply adaptive thresholding
-        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 4)
         # Apply dilation and erosion to enhance characters
-        kernel = np.ones((3, 3), np.uint8)
+        kernel = np.ones((2, 2), np.uint8)
         binary = cv2.dilate(binary, kernel, iterations=1)
         binary = cv2.erode(binary, kernel, iterations=1)
         # Apply denoising
