@@ -20,7 +20,6 @@ class MenuScreen:
         self.master.title("Select Tracking Type")
         self.master.geometry("960x640") 
 
-        # Load and display the logo, resized to fit the window
         self.load_and_display_logo(master)
 
         # Title label
@@ -68,7 +67,6 @@ class VideoApp2:
         self.root = root
         self.root.title("Phys TrackerX")
         
-        # Make the window cover the entire screen
         self.root.geometry("960x740")
         self.processor = VideoProcessor()
         self.create_widgets()
@@ -111,14 +109,14 @@ class VideoApp2:
             self.fps_label = tk.Label(self.filter_frame, text="")
             self.fps_label.pack(pady=5)
             
+            self.frame_button = tk.Button(self.filter_frame, text="Select Initial and Final Frames", command=self.select_frames)
+            self.frame_button.pack(pady=10)
+
             self.filter_button = tk.Button(self.filter_frame, text="Apply Filters", command=self.show_filter_popup)
             self.filter_button.pack(pady=10)
             
             self.undo_button = tk.Button(self.filter_frame, text="Reset", command=self.undo_filter)
             self.undo_button.pack(pady=10)
-            
-            self.frame_button = tk.Button(self.filter_frame, text="Select Initial and Final Frames", command=self.select_frames)
-            self.frame_button.pack(pady=10)
             
             self.distance_button = tk.Button(self.filter_frame, text="Set Reference Distance", command=self.set_reference_distance)
             self.distance_button.pack(pady=10)
@@ -324,10 +322,8 @@ class VideoApp2:
 
         self.processor.clip_video()
 
-        # Replace original frames with the clipped frames
         self.processor.frames = self.processor.cropped_frames.copy()
 
-        # If there are filtered images, apply the filters to the clipped frames
         if self.processor.filtered_images:
             self.processor.apply_filters_to_clipped_frames()
 
@@ -664,6 +660,7 @@ class VideoApp2:
     def perform_blob_tracking(self):
         print("Starting blob tracking...")  # Debug statement
         self.processor.tracked_points = []
+        self.processor.contour_points = []
         resize_width, resize_height = 640, 480
 
         # Ensure bbox coordinates are within frame dimensions
@@ -706,6 +703,7 @@ class VideoApp2:
                 if cX is not None and cY is not None:
                     try:
                         self.processor.tracked_points.append((cX + x, cY + y))
+                        self.processor.contour_points.append([(point[0][0] + x, point[0][1] + y) for point in max_contour])
                         cv2.circle(frame[y:y+h, x:x+w], (cX, cY), 5, (255, 0, 0), -1)
                         print(f"Frame {frame_index}: Centroid at ({cX + x}, {cY + y})")  # Debug statement
                     except Exception as e:
@@ -723,13 +721,12 @@ class VideoApp2:
 
         # Convert tracked points to real coordinates
         real_tracked_points = self.translate_to_real_coordinates(self.processor.tracked_points)
+        real_contour_points = [self.translate_to_real_coordinates(contour) for contour in self.processor.contour_points]
         self.processor.tracked_points = real_tracked_points
+        self.processor.contour_points = real_contour_points
 
-        # Ask the user if they would like to save the coordinates
-        if messagebox.askyesno("Save Coordinates", "Blob tracking completed. Would you like to save the coordinates?"):
+        if messagebox.askyesno("Save Coordinates", "Blob tracking completed. Would you like to save the centroid and contour coordinates as well?"):
             self.save_coordinates()
-
-
 
 
     def calculate_centroid(self, contour):
@@ -872,20 +869,17 @@ class VideoApp2:
             messagebox.showerror("Error", "Axis origin not set.")
             return
 
-        origin_x, origin_y = self.processor.axis_coords[0]
-
         file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
         if not file_path:
             return
 
         with open(file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Frame", "X (real units)", "Y (real units)"])
-            for i, (x, y) in enumerate(self.processor.tracked_points):
-                # # Adjust coordinates based on axis origin and reference distance
-                # real_x = (x - origin_x) * self.processor.ref_distance
-                # real_y = (y - origin_y) * self.processor.ref_distance
-                writer.writerow([i, x, y])
+            writer.writerow(["Frame", "Centroid X (real units)", "Centroid Y (real units)", "Contour Points (real units)"])
+            for i, (centroid, contour) in enumerate(zip(self.processor.tracked_points, self.processor.contour_points)):
+                contour_str = "; ".join([f"({x:.2f}, {y:.2f})" for x, y in contour])
+                writer.writerow([i, centroid[0], centroid[1], contour_str])
+
 
 
     def mark_pressure_area(self):
@@ -912,13 +906,13 @@ class VideoApp2:
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # Resize the image to double its original size
-        gray = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_LINEAR)
+        gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
         # Apply Gaussian blur
-        gray = cv2.GaussianBlur(gray, (7, 7), 0)
+        gray = cv2.GaussianBlur(gray, (9, 9), 0)
         # Apply adaptive thresholding
         binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
         # Apply dilation and erosion to enhance characters
-        kernel = np.ones((2, 2), np.uint8)
+        kernel = np.ones((3, 3), np.uint8)
         binary = cv2.dilate(binary, kernel, iterations=1)
         binary = cv2.erode(binary, kernel, iterations=1)
         # Apply denoising
