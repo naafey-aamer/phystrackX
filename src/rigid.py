@@ -355,7 +355,7 @@ class VideoApp:
         self.processor.axis_coords = [(event.x, event.y)]  # Origin point
         self.video_view.create_oval(event.x-3, event.y-3, event.x+3, event.y+3, fill="blue", width=2)
         self.video_view.unbind("<Button-1>")
-        messagebox.showinfo("Instruction", "Now, move the cursor to draw the axes and click to drop the end points.")
+        messagebox.showinfo("Instruction", "Click Again To Finalize The Axes")
         self.video_view.bind("<Motion>", self.update_axes_image)
         self.video_view.bind("<Button-1>", self.drop_axes)
 
