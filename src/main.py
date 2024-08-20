@@ -9,7 +9,7 @@ from tkinter import ttk
 import csv
 from nonrigid import VideoApp2
 from rigid import VideoApp
-from auto import VideoApp3
+# from auto import VideoApp3
 
 class WelcomeScreen:
     def __init__(self, master):
