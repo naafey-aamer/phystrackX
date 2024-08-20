@@ -657,6 +657,52 @@ class VideoApp2:
         print(f"Bounding box: ({self.start_x}, {self.start_y}) to ({self.end_x}, {self.end_y})")  # Debug statement
         self.perform_blob_tracking()
 
+    def save_area_time_graph(self):
+        if not hasattr(self.processor, 'fps') or self.processor.fps is None:
+            messagebox.showerror("Error", "FPS value is missing.")
+            return
+
+        # Ensure contour_points are not empty and are in the correct format
+        areas = []
+        for contour in self.processor.contour_points:
+            if len(contour) > 0:  # Ensure the contour is not empty
+                contour_array = np.array(contour, dtype=np.float32)  # Convert to correct format
+                areas.append(cv2.contourArea(contour_array))
+            else:
+                areas.append(0)  # Handle case where contour is empty
+
+        # Calculate time for each frame based on FPS
+        times = [frame_num / self.processor.fps for frame_num in range(len(areas))]
+
+        # Plot the area/time graph
+        plt.figure()
+        plt.plot(times, areas, label="Contour Area")
+        plt.xlabel('Time (s)')
+        plt.ylabel('Area')
+        plt.title('Tracked Contour Area Over Time')
+        plt.legend()
+        plt.show()
+
+        # Ask where to save the graph
+        # file_path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png"), ("All files", "*.*")])
+        # if file_path:
+        #     plt.savefig(file_path)
+        #     messagebox.showinfo("Success", f"Graph saved at {file_path}")
+
+        # Ask where to save the CSV file
+        csv_file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+        if csv_file_path:
+            # Save the area and time data to a CSV file
+            with open(csv_file_path, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(["Time (s)", "Area"])
+                for time, area in zip(times, areas):
+                    writer.writerow([time, area])
+            
+            messagebox.showinfo("Success", f"Data saved to {csv_file_path}")
+
+
+
     def perform_blob_tracking(self):
         print("Starting blob tracking...")  # Debug statement
         self.processor.tracked_points = []
@@ -725,8 +771,13 @@ class VideoApp2:
         self.processor.tracked_points = real_tracked_points
         self.processor.contour_points = real_contour_points
 
-        if messagebox.askyesno("Save Coordinates", "Blob tracking completed. Would you like to save the centroid and contour coordinates as well?"):
+        if messagebox.askyesno("Save Coordinates", "Blob tracking completed. Would you like to save the centroid and blob coordinates?"):
             self.save_coordinates()
+
+        
+        # Once the blob tracking is complete, ask if the user wants to save the area/time graph
+        if messagebox.askyesno("Save Area/Time Graph", "Would you like to plot the area-time graph and save the coordinates of the blob?"):
+            self.save_area_time_graph()
 
 
     def calculate_centroid(self, contour):
