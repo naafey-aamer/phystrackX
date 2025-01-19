@@ -402,52 +402,110 @@ class VideoApp2:
         self.video_view.create_oval(event.x-3, event.y-3, event.x+3, event.y+3, fill="red")
     
     def start_tracking(self):
+        """
+        Implements Lucas-Kanade optical flow tracking optimized for non-rigid body tracking.
+        
+        This implementation differs from rigid tracking in that it:
+        - Allows for deformation between tracked points
+        - Doesn't assume constant distance between points
+        - Tracks each point independently without rigid body constraints
+        - Suitable for tracking deformable objects, fluids, or multiple independent points
+        """
+
+        # Input validation: ensure video has been preprocessed
         if not self.processor.frames:
             messagebox.showerror("Error", "Please clip the video first.")
             return
         
+        # Input validation: ensure tracking points have been marked
+        # For non-rigid tracking, points can be scattered across deformable regions
         if not self.processor.points_to_track:
             messagebox.showerror("Error", "Please mark points to track first.")
             return
-        
+
+        # Convert tracking points to numpy array
+        # Shape: Nx1x2 where:
+        # N = number of points
+        # 1 = single coordinate
+        # 2 = x,y coordinates
         p0 = np.array(self.processor.points_to_track, dtype=np.float32).reshape(-1, 1, 2)
-        lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-        
-        # Check if the first frame is already grayscale
+
+        # Configure Lucas-Kanade parameters for non-rigid tracking
+        lk_params = dict(
+            winSize=(15, 15),      # Search window size per pyramid level
+                                # Smaller than rigid tracking to capture local deformations
+            
+            maxLevel=2,            # Number of pyramid levels
+                                # Balances between large movements and local accuracy
+            
+            criteria=(             # Termination criteria
+                cv2.TERM_CRITERIA_EPS |      # Stop on accuracy threshold
+                cv2.TERM_CRITERIA_COUNT,     # Stop on max iterations
+                10,                          # Maximum iterations
+                0.03                         # Minimum accuracy (epsilon)
+            )
+        )
+
+        # Process first frame - convert to grayscale if needed
+        # Non-rigid tracking requires consistent grayscale processing
         if self.processor.frames[0].ndim == 3 and self.processor.frames[0].shape[2] == 3:
             old_gray = cv2.cvtColor(self.processor.frames[0], cv2.COLOR_BGR2GRAY)
         else:
-            old_gray = self.processor.frames[0]  # Assuming it is already in grayscale
-        
+            old_gray = self.processor.frames[0]  # Already in grayscale
+
+        # Initialize tracking history
+        # Dictionary structure:
+        # - Keys: point indices
+        # - Values: list of (x,y) coordinates representing point trajectory
         points_tracked = {i: [p] for i, p in enumerate(self.processor.points_to_track)}
-        
+
+        # Main tracking loop - process each frame after the first
         for frame in self.processor.frames[1:]:
+            # Convert current frame to grayscale if needed
+            # Consistent grayscale processing is crucial for accurate tracking
             if frame.ndim == 3 and frame.shape[2] == 3:
                 frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             else:
-                frame_gray = frame  # Assuming it is already in grayscale
-            
+                frame_gray = frame
+
+            # Calculate optical flow using Lucas-Kanade method
+            # Returns:
+            # p1 - New point positions
+            # st - Status array (1 = tracked, 0 = lost)
+            # err - Error measure for each point
             p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
-            good_new = p1[st == 1]
-            good_old = p0[st == 1]
-            
+
+            # Filter points based on status
+            # Only keep points that were successfully tracked
+            good_new = p1[st == 1]  # New positions of good points
+            good_old = p0[st == 1]  # Previous positions for reference
+
+            # Update tracking history for each point
+            # Each point moves independently in non-rigid tracking
             for i, (new, old) in enumerate(zip(good_new, good_old)):
-                a, b = new.ravel()
-                points_tracked[i].append((a, b))
-            
-            old_gray = frame_gray.copy()
-            p0 = good_new.reshape(-1, 1, 2)
-        
+                a, b = new.ravel()  # Extract x,y coordinates
+                points_tracked[i].append((a, b))  # Add to trajectory
+
+            # Prepare for next iteration
+            old_gray = frame_gray.copy()  # Update previous frame
+            p0 = good_new.reshape(-1, 1, 2)  # Update previous points
+
+        # Visualize tracking results
+        # Draw points on each frame to show trajectories
         for i, frame in enumerate(self.processor.frames):
             for j, point in points_tracked.items():
-                if i < len(point):
+                if i < len(point):  # Check if point exists in this frame
                     x, y = point[i]
+                    # Draw green circle at point position
                     cv2.circle(frame, (int(x), int(y)), 3, (0, 255, 0), -1)
-        
+
+        # Store tracked points for analysis
+        # Non-rigid analysis may include deformation metrics
         self.processor.points_tracked = points_tracked
+
+        # Update UI and display
         self.display_clipped_frames()
-        
-        self.plot_button.config(state=tk.NORMAL)
+        self.plot_button.config(state=tk.NORMAL)  # Enable plotting functionality
 
 
     def plot_distances(self):
