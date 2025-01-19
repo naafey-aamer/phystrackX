@@ -415,52 +415,88 @@ class VideoApp:
         self.video_view.create_oval(event.x-3, event.y-3, event.x+3, event.y+3, fill="red")
     
     def start_tracking(self):
+        """
+        Implements Lucas-Kanade optical flow tracking for marked points across video frames.
+        This method processes the entire video sequence and tracks the motion of selected points.
+        """
+        # Input validation: ensure video has been clipped
         if not self.processor.frames:
             messagebox.showerror("Error", "Please clip the video first.")
             return
         
+        # Input validation: ensure points have been marked for tracking
         if not self.processor.points_to_track:
             messagebox.showerror("Error", "Please mark points to track first.")
             return
-        
+
+        # Convert point coordinates to numpy array format required by OpenCV
+        # Shape: Nx1x2 array where N is number of points, 1 is for single coordinate, 2 for x,y
         p0 = np.array(self.processor.points_to_track, dtype=np.float32).reshape(-1, 1, 2)
-        lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-        
-        # Check if the first frame is already grayscale
+
+        # Define Lucas-Kanade optical flow parameters
+        lk_params = dict(
+            winSize=(15, 15),      # Size of search window for each pyramid level
+            maxLevel=2,            # Number of pyramid levels (0 means single level)
+            criteria=(             # Termination criteria for iterative algorithm
+                cv2.TERM_CRITERIA_EPS |      # Stop if accuracy is reached
+                cv2.TERM_CRITERIA_COUNT,     # Stop if max iterations reached
+                10,                          # Maximum iterations
+                0.03                         # Minimum accuracy/epsilon
+            )
+        )
+
+        # Convert first frame to grayscale if necessary
+        # OpenCV optical flow requires grayscale images
         if self.processor.frames[0].ndim == 3 and self.processor.frames[0].shape[2] == 3:
             old_gray = cv2.cvtColor(self.processor.frames[0], cv2.COLOR_BGR2GRAY)
         else:
-            old_gray = self.processor.frames[0]  # Assuming it is already in grayscale
-        
+            old_gray = self.processor.frames[0]  # Frame is already grayscale
+
+        # Initialize dictionary to store tracking history
+        # Keys: point indices, Values: lists of (x,y) coordinates
         points_tracked = {i: [p] for i, p in enumerate(self.processor.points_to_track)}
-        
+
+        # Process all frames after the first one
         for frame in self.processor.frames[1:]:
+            # Convert current frame to grayscale if necessary
             if frame.ndim == 3 and frame.shape[2] == 3:
                 frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             else:
-                frame_gray = frame  # Assuming it is already in grayscale
-            
+                frame_gray = frame
+
+            # Calculate optical flow using Lucas-Kanade method
+            # p1: calculated new positions of input points
+            # st: status array (1 = point found, 0 = point lost)
+            # err: array of error measures for each point
             p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
-            good_new = p1[st == 1]
-            good_old = p0[st == 1]
-            
+
+            # Select good points by checking status array
+            good_new = p1[st == 1]  # New positions of successfully tracked points
+            good_old = p0[st == 1]  # Previous positions of successfully tracked points
+
+            # Update tracking history for successfully tracked points
             for i, (new, old) in enumerate(zip(good_new, good_old)):
-                a, b = new.ravel()
-                points_tracked[i].append((a, b))
-            
+                a, b = new.ravel()  # Extract x,y coordinates from array
+                points_tracked[i].append((a, b))  # Add new position to tracking history
+
+            # Update for next iteration
             old_gray = frame_gray.copy()
-            p0 = good_new.reshape(-1, 1, 2)
-        
+            p0 = good_new.reshape(-1, 1, 2)  # Update previous points
+
+        # Visualize tracked points on all frames
         for i, frame in enumerate(self.processor.frames):
             for j, point in points_tracked.items():
-                if i < len(point):
+                if i < len(point):  # Check if point was tracked in this frame
                     x, y = point[i]
+                    # Draw green circle at tracked point position
                     cv2.circle(frame, (int(x), int(y)), 3, (0, 255, 0), -1)
-        
+
+        # Store tracked points for later analysis
         self.processor.points_tracked = points_tracked
+
+        # Update display and UI
         self.display_clipped_frames()
-        
-        self.track_coords_button.config(state=tk.NORMAL)
+        self.track_coords_button.config(state=tk.NORMAL)  # Enable coordinates button
 
 
     def plot_distances(self):
